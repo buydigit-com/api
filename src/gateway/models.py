@@ -159,4 +159,27 @@ class Transaction(db.Model):
             
         return resp
 
+    def getCoins(self,hash):
+        try:
+            transaction = Transaction.query.filter_by(hash=hash).first()
+            if transaction is None:
+                return tools.JsonResp({"message": "txn not found"}, 500)
+            coins = Coin.query.all()
+            resp = tools.JsonResp({"message": "coins found","coins":coins}, 200)
+        except Exception as e:
+            print(e)
+            resp = tools.JsonResp({"message": "coins not found"}, 500)
+        return resp
+
+    def getCoinNetworks(self,coin_id):
+        try:
+            coin = Coin.query.filter_by(id=coin_id).first()
+            if coin is None:    
+                return tools.JsonResp({"message": "coin not found"}, 500)
+            resp = tools.JsonResp({"message": "networks found","networks":coin.networks}, 200)
+        except Exception as e:
+            print(e)
+            resp = tools.JsonResp({"message": "networks not found"}, 500)
+        return resp
+
 from src.kraken.models import Kraken
