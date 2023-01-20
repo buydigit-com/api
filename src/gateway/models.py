@@ -14,8 +14,6 @@ class CoinNetwork(db.Model,SerializerMixin):
 
 class Network(db.Model,SerializerMixin):
 
-    serialize_rules = ('-coin.network',)
-
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     explorer_url = db.Column(db.String(255), nullable=False)
@@ -23,11 +21,10 @@ class Network(db.Model,SerializerMixin):
     symbol = db.Column(db.String(255), nullable=False)
     active = db.Column(db.Boolean, nullable=False)
     exchange_network_ticker = db.Column(db.String(255), nullable=False)
-    coin = db.relationship('Coin', secondary=CoinNetwork.__table__, backref='networks')
 
 class Coin(db.Model,SerializerMixin):
 
-    serialize_rules = ('-network.coin',)
+    serialize_rules = ('-networks.coins',)
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
@@ -39,7 +36,7 @@ class Coin(db.Model,SerializerMixin):
     exchange_eur_pair_ticker = db.Column(db.String(255), nullable=False)
     exchange_usd_pair_ticker = db.Column(db.String(255), nullable=False)
     exchange_btc_pair_ticker = db.Column(db.String(255), nullable=False)
-    network = db.relationship('Network', secondary=CoinNetwork.__table__, backref='coins')
+    networks = db.relationship('Network', secondary=CoinNetwork.__table__, backref='coins')
 
 class Dump(db.Model,SerializerMixin):
 
@@ -54,7 +51,7 @@ class Dump(db.Model,SerializerMixin):
 
 class Deposit(db.Model,SerializerMixin):
 
-    serialize_rules = ('-coin.deposit','-network.deposit','-dump')
+    serialize_rules = ('-coin.deposit','-coin.networks','-network.deposit','-network.coins','-dump')
 
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(255), nullable=False)
