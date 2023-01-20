@@ -34,5 +34,5 @@ def create_app(**config_overrides):
     from src.gateway import wsnode
     app.register_blueprint(gateway_blueprint, url_prefix="/gateway")
     app.register_blueprint(kraken_blueprint, url_prefix="/kraken")
-    socketio.init_app(app,cors_allowed_origins="*", async_mode="eventlet", logger=True, engineio_logger=True)
+    socketio.init_app(app,cors_allowed_origins="*")
     return app

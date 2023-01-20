@@ -3,6 +3,8 @@ from src.utils import tools
 import json
 import hashlib
 from flask import request
+import dictfier
+from datetime import datetime, timedelta
 
 
 class CoinNetwork(db.Model):
@@ -13,6 +15,7 @@ class CoinNetwork(db.Model):
 class Network(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
+    explorer_url = db.Column(db.String(255), nullable=False)
     description = db.Column(db.String(255), nullable=False)
     symbol = db.Column(db.String(255), nullable=False)
     active = db.Column(db.Boolean, nullable=False)
@@ -53,19 +56,72 @@ class Deposit(db.Model):
     dump_id = db.Column(db.Integer, db.ForeignKey('dump.id'))
     dump = db.relationship('Dump', backref='deposit')
     coin_id = db.Column(db.Integer, db.ForeignKey('coin.id'))
+    coin = db.relationship('Coin', backref='deposit')
     network_id = db.Column(db.Integer, db.ForeignKey('network.id'))
+    network = db.relationship('Network', backref='deposit')
     
-    
+class Shop(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    api_key = db.Column(db.String(255), nullable=False)
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(db.DateTime, nullable=False, default=tools.nowDatetimeUTC)
+    expiry_at = db.Column(db.DateTime, nullable=True )
     hash = db.Column(db.String(255), unique=True, nullable=False)
-    description = db.Column(db.String(255), nullable=False)
     fiat_currency = db.Column(db.String(255), nullable=False)
     fiat_amount = db.Column(db.Integer, nullable=False)
+    product_id = db.Column(db.Integer, nullable=False)
+    product_description = db.Column(db.String(255), nullable=False)
+    shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'))
+    shop = db.relationship('Shop', backref='transaction')
     deposit_id = db.Column(db.Integer, db.ForeignKey('deposit.id'))
     deposit = db.relationship('Deposit', backref='transaction')
+
+    def as_dict(self):
+        query = [
+            "id",
+            "created_at",
+            "expiry_at",
+            "hash",
+            "fiat_currency",
+            "fiat_amount",
+            "product_id",
+            "product_description",
+            {
+                "deposit": [
+                    "id",
+                    "status",
+                    "amount",
+                    "amount_timestamp",
+                    "real_amount_received",
+                    "deposit_address",
+                    "blockchain_txid",
+                    {
+                        "coin": [
+                            "id",
+                            "name",
+                            "description",
+                            "symbol",
+                            "decimals",
+                        ],
+                        "network": [
+                            "id",
+                            "name",
+                            "description",
+                            "symbol",
+                        ]
+                    }
+                ],
+                "shop": [
+                    "id",
+                    "name",
+                ]
+            }
+        ]
+        dict = dictfier.dictfy(self, query)
+        return dict
 
     def createTransaction(self):
         try:
@@ -74,18 +130,27 @@ class Transaction(db.Model):
             expected_data = {
                 "fiat_currency": data['fiat_currency'],
                 "fiat_amount": data['fiat_amount'],
-                "description": data['description'],
+                "product_description": data['product_description'],
+                "product_id": data['product_id'],
+                "shop_api_key": data['shop_api_key'],
             }
 
             txn_fingerprint = str(data['fiat_currency']) + str(data['fiat_amount']) + str(tools.nowDatetimeUTC()) + str(tools.randID())
             hs = hashlib.sha1(txn_fingerprint.encode('ascii'))
             hash = hs.hexdigest()
 
+            shop = Shop.query.filter_by(api_key=expected_data['shop_api_key']).first()
+            if shop is None:
+                return tools.JsonResp({"message": "shop not found"}, 404)
+
             transaction = Transaction(
                 hash=hash,
-                description=expected_data['description'],
+                expiry_at=tools.nowDatetimeUTC() + timedelta(hours=24),
                 fiat_currency=expected_data['fiat_currency'].lower(),
-                fiat_amount=expected_data['fiat_amount']
+                fiat_amount=expected_data['fiat_amount'],
+                product_description=expected_data['product_description'],
+                product_id=expected_data['product_id'],
+                shop_id=shop.id
             )
 
             deposit = Deposit(
@@ -121,11 +186,15 @@ class Transaction(db.Model):
             
         return resp
 
-    def setDeposit(self, hash):
+    def setDeposit(self, hash, ws_data=False):
 
         try:
-            data = json.loads(request.data)
-            
+
+            if ws_data:
+                data = ws_data
+            else:
+                data = json.loads(request.data)
+                
             expected_data = {
                 "coin_id": data['coin_id'],
                 "network_id": data['network_id'],

@@ -37,6 +37,9 @@ def nowDatetimeUTC():
 def JsonResp(data, status):
 	return Response(json.dumps(data,cls=AlchemyEncoder), mimetype="application/json", status=status)
 
+def SocketResp(data):
+	return json.dumps(data, indent=4, sort_keys=True, default=str)
+
 def randID():
 	randId = uuid.uuid4().hex
 	return randId
