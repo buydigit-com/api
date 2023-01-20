@@ -3,16 +3,19 @@ from src.utils import tools
 import json
 import hashlib
 from flask import request
-import dictfier
+from sqlalchemy_serializer import SerializerMixin
 from datetime import datetime, timedelta
 
 
-class CoinNetwork(db.Model):
+class CoinNetwork(db.Model,SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     coin_id = db.Column(db.Integer, db.ForeignKey('coin.id'))
     network_id = db.Column(db.Integer, db.ForeignKey('network.id'))
 
-class Network(db.Model):
+class Network(db.Model,SerializerMixin):
+
+    serialize_rules = ('-coin.network',)
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     explorer_url = db.Column(db.String(255), nullable=False)
@@ -22,7 +25,10 @@ class Network(db.Model):
     exchange_network_ticker = db.Column(db.String(255), nullable=False)
     coin = db.relationship('Coin', secondary=CoinNetwork.__table__, backref='networks')
 
-class Coin(db.Model):
+class Coin(db.Model,SerializerMixin):
+
+    serialize_rules = ('-network.coin',)
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.String(255), nullable=False)
@@ -35,7 +41,8 @@ class Coin(db.Model):
     exchange_btc_pair_ticker = db.Column(db.String(255), nullable=False)
     network = db.relationship('Network', secondary=CoinNetwork.__table__, backref='coins')
 
-class Dump(db.Model):
+class Dump(db.Model,SerializerMixin):
+
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(255), nullable=False)
     final_fiat_amount = db.Column(db.Float, nullable=True)
@@ -45,7 +52,10 @@ class Dump(db.Model):
     coin_id = db.Column(db.Integer, db.ForeignKey('coin.id'))
     network_id = db.Column(db.Integer, db.ForeignKey('network.id'))
 
-class Deposit(db.Model):
+class Deposit(db.Model,SerializerMixin):
+
+    serialize_rules = ('-coin.deposit','-network.deposit','-dump')
+
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(255), nullable=False)
     amount = db.Column(db.Float, nullable=True)
@@ -60,12 +70,15 @@ class Deposit(db.Model):
     network_id = db.Column(db.Integer, db.ForeignKey('network.id'))
     network = db.relationship('Network', backref='deposit')
     
-class Shop(db.Model):
+class Shop(db.Model,SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     api_key = db.Column(db.String(255), nullable=False)
 
-class Transaction(db.Model):
+class Transaction(db.Model,SerializerMixin):
+
+    serialize_rules = ('-deposit.transaction','-shop.transaction')
+
     id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(db.DateTime, nullable=False, default=tools.nowDatetimeUTC)
     expiry_at = db.Column(db.DateTime, nullable=True )
@@ -78,50 +91,6 @@ class Transaction(db.Model):
     shop = db.relationship('Shop', backref='transaction')
     deposit_id = db.Column(db.Integer, db.ForeignKey('deposit.id'))
     deposit = db.relationship('Deposit', backref='transaction')
-
-    def as_dict(self):
-        query = [
-            "id",
-            "created_at",
-            "expiry_at",
-            "hash",
-            "fiat_currency",
-            "fiat_amount",
-            "product_id",
-            "product_description",
-            {
-                "deposit": [
-                    "id",
-                    "status",
-                    "amount",
-                    "amount_timestamp",
-                    "real_amount_received",
-                    "deposit_address",
-                    "blockchain_txid",
-                    {
-                        "coin": [
-                            "id",
-                            "name",
-                            "description",
-                            "symbol",
-                            "decimals",
-                        ],
-                        "network": [
-                            "id",
-                            "name",
-                            "description",
-                            "symbol",
-                        ]
-                    }
-                ],
-                "shop": [
-                    "id",
-                    "name",
-                ]
-            }
-        ]
-        dict = dictfier.dictfy(self, query)
-        return dict
 
     def createTransaction(self):
         try:

@@ -8,14 +8,14 @@ from src.utils import tools
 def connect():
     txn_hash = request.args.get('txn_hash')
     if txn_hash:
-        txn = Transaction.query.filter_by(hash=txn_hash).first()
+        txn = Transaction().query.filter_by(hash=txn_hash).first()
         if txn:
-            emit(txn_hash, tools.SocketResp(txn.as_dict()))
+            emit(txn_hash, tools.SocketResp(txn.to_dict()))
 
 @socketio.on('initiateTransaction')
 def initiateTransaction(data):
     resp = Transaction().setDeposit(data['txn_hash'],data)
     if resp.status_code == 200:
-        txn = Transaction.query.filter_by(hash=data['txn_hash']).first()
+        txn = Transaction().query.filter_by(hash=data['txn_hash']).first()
         if txn:
-            emit(data['txn_hash'], tools.SocketResp(txn.as_dict()))
+            emit(data['txn_hash'], tools.SocketResp(txn.to_dict()))

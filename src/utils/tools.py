@@ -6,6 +6,8 @@ import uuid
 from flask import Response
 import json
 from sqlalchemy.ext.declarative import DeclarativeMeta
+from uuid import UUID
+
 
 class AlchemyEncoder(json.JSONEncoder):
 
@@ -28,7 +30,7 @@ class AlchemyEncoder(json.JSONEncoder):
 def nowDatetimeUserTimezone(user_timezone):
 	tzone = timezone(user_timezone)
 	return datetime.datetime.now(tzone)
-
+	
 def nowDatetimeUTC():
 	tzone = UTC
 	now = datetime.datetime.now(tzone)
