@@ -7,7 +7,32 @@ from flask import Response
 import json
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from uuid import UUID
+from decimal import Decimal
 
+
+class MultipleJsonEncoders():
+    """
+    Combine multiple JSON encoders
+    """
+    def __init__(self, *encoders):
+        self.encoders = encoders
+        self.args = ()
+        self.kwargs = {}
+
+    def default(self, obj):
+        for encoder in self.encoders:
+            try:
+                return encoder(*self.args, **self.kwargs).default(obj)
+            except TypeError:
+                pass
+        raise TypeError(f'Object of type {obj.__class__.__name__} is not JSON serializable')
+
+    def __call__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        enc = json.JSONEncoder(*args, **kwargs)
+        enc.default = self.default
+        return enc
 
 class AlchemyEncoder(json.JSONEncoder):
 
@@ -24,8 +49,14 @@ class AlchemyEncoder(json.JSONEncoder):
                     fields[field] = None
             # a json-encodable dict
             return fields
+		
+        return super().default(obj)
 
-        return json.JSONEncoder.default(self, obj)
+class JsonDecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return o.__str__()
+        return super().default(o)
 
 def nowDatetimeUserTimezone(user_timezone):
 	tzone = timezone(user_timezone)
@@ -37,7 +68,7 @@ def nowDatetimeUTC():
 	return now
 
 def JsonResp(data, status):
-	return Response(json.dumps(data,cls=AlchemyEncoder), mimetype="application/json", status=status)
+	return Response(json.dumps(data,cls=MultipleJsonEncoders(AlchemyEncoder, JsonDecimalEncoder)), mimetype="application/json", status=status)
 
 def SocketResp(data):
 	return json.dumps(data, indent=4, sort_keys=True, default=str)

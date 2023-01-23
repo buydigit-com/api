@@ -54,7 +54,7 @@ class Deposit(db.Model,SerializerMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(255), nullable=False)
-    amount = db.Column(db.Float, nullable=True)
+    amount = db.Column(db.Numeric(18,8), nullable=True)
     confirmed_at = db.Column(db.DateTime, nullable=True)
     real_amount_received = db.Column(db.Float, nullable=True)
     deposit_address = db.Column(db.String(255), nullable=True)
@@ -82,7 +82,7 @@ class Transaction(db.Model,SerializerMixin):
     expiry_at = db.Column(db.DateTime, nullable=True )
     hash = db.Column(db.String(255), unique=True, nullable=False)
     fiat_currency = db.Column(db.String(255), nullable=False)
-    fiat_amount = db.Column(db.Float(precision=10,scale=2), nullable=False)
+    fiat_amount = db.Column(db.Numeric(10,2), nullable=False)
     product_id = db.Column(db.Integer, nullable=False)
     product_description = db.Column(db.String(255), nullable=False)
     shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'))

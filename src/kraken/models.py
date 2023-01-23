@@ -152,7 +152,6 @@ class Kraken(db.Model):
             db.session.add(db_coin)
             db.session.commit()
                 
-
     def dumpToFiat(self,hash):
 
         transaction = Transaction().query.filter_by(hash=hash).first()
