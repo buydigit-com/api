@@ -4,8 +4,9 @@ import json
 import hashlib
 from flask import request
 from sqlalchemy_serializer import SerializerMixin
+from sqlalchemy.types import JSON
 from datetime import datetime, timedelta
-
+from sqlalchemy import or_
 
 class CoinNetwork(db.Model,SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -43,11 +44,9 @@ class Dump(db.Model,SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(255), nullable=False)
     final_fiat_amount = db.Column(db.Float, nullable=True)
-    dump_timestamp = db.Column(db.DateTime, nullable=True)
+    dumped_at = db.Column(db.DateTime, nullable=True)
     fiat_currency = db.Column(db.String(255), nullable=True)
     exchange_trade_id = db.Column(db.String(255), nullable=True)
-    coin_id = db.Column(db.Integer, db.ForeignKey('coin.id'))
-    network_id = db.Column(db.Integer, db.ForeignKey('network.id'))
 
 class Deposit(db.Model,SerializerMixin):
 
@@ -56,9 +55,10 @@ class Deposit(db.Model,SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(255), nullable=False)
     amount = db.Column(db.Float, nullable=True)
-    amount_timestamp = db.Column(db.DateTime, nullable=True)
+    confirmed_at = db.Column(db.DateTime, nullable=True)
     real_amount_received = db.Column(db.Float, nullable=True)
     deposit_address = db.Column(db.String(255), nullable=True)
+    user_address = db.Column(db.String(255), nullable=True)
     blockchain_txid = db.Column(db.String(255), nullable=True)
     dump_id = db.Column(db.Integer, db.ForeignKey('dump.id'))
     dump = db.relationship('Dump', backref='deposit')
@@ -71,6 +71,7 @@ class Shop(db.Model,SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     api_key = db.Column(db.String(255), nullable=False)
+    theme_customization = db.Column(JSON, nullable=False, default={})
 
 class Transaction(db.Model,SerializerMixin):
 
@@ -81,7 +82,7 @@ class Transaction(db.Model,SerializerMixin):
     expiry_at = db.Column(db.DateTime, nullable=True )
     hash = db.Column(db.String(255), unique=True, nullable=False)
     fiat_currency = db.Column(db.String(255), nullable=False)
-    fiat_amount = db.Column(db.Integer, nullable=False)
+    fiat_amount = db.Column(db.Float(precision=10,scale=2), nullable=False)
     product_id = db.Column(db.Integer, nullable=False)
     product_description = db.Column(db.String(255), nullable=False)
     shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'))
@@ -215,6 +216,16 @@ class Transaction(db.Model,SerializerMixin):
         except Exception as e:
             print(e)
             resp = tools.JsonResp({"message": "networks not found"}, 500)
+        return resp
+
+    def getTransactionsToProcess(self):
+        try:
+            # get all transactions that are not expired and have deposit status pending or waiting
+            transactions = Transaction.query.with_entities(Transaction.hash).filter(Transaction.expiry_at > tools.nowDatetimeUTC()).filter(or_(Transaction.deposit.has(status="initiated"),Transaction.deposit.has(status="waitingconfirm"))).all()
+            resp = tools.JsonResp({"message": "transactions found","transactions":transactions}, 200)
+        except Exception as e:
+            print(e)
+            resp = tools.JsonResp({"message": "transactions not found"}, 500)
         return resp
 
 from src.kraken.models import Kraken

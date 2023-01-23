@@ -8,5 +8,4 @@ from application import create_app, socketio
 app = create_app()
 
 if __name__ == "__main__":
-    print("OKOKOKKKO")
     socketio.run(app, host='api.buydigit.com' ,port=5000, debug=True, use_reloader=True)

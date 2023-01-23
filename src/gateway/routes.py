@@ -2,7 +2,7 @@ from flask import Blueprint
 
 from application import db
 from src.gateway.models import Transaction
-from src.utils.middleware import isMerchant,api_required
+from src.utils.middleware import isMerchant,api_required,cron_required
 
 gateway_blueprint = Blueprint("gateway", __name__)
 
@@ -37,3 +37,8 @@ def getCoins(hash):
 def getCoinNetworks(id):
     return Transaction().getCoinNetworks(id)
 
+
+@gateway_blueprint.route("/transactions/toprocess", methods=["GET"])
+@cron_required
+def getTransactionsToProcess():
+	return Transaction().getTransactionsToProcess()

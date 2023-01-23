@@ -6,6 +6,7 @@ from flask import request
 import krakenex
 from src.gateway.models import Coin,Network,Transaction
 from datetime import datetime
+from application import socketio
 class Kraken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
@@ -78,32 +79,45 @@ class Kraken(db.Model):
         data = session.query_private('DepositStatus',{'asset':exchange_coin_ticker,'method':exchange_network_ticker})
         self.closeSession(session)
 
-
         if "result" not in data:
             resp = tools.JsonResp({"status":"error","message":"Kraken API error"},500)
         else:
             right_deposit = None
-            resp = tools.JsonResp({"status":"not-found","message":"Transaction not found"},200)
+            resp = tools.JsonResp({"status":"not-found","message":"deposit not found"},200)
             for deposit in data["result"]:
-                if deposit["amount"] == transaction.deposit.amount and deposit["info"] == transaction.deposit.address and datetime.fromtimestamp(deposit["time"]) >= transaction.deposit.created_at:
+                if float(deposit["amount"]) == transaction.deposit.amount and deposit["info"] == transaction.deposit.deposit_address and datetime.fromtimestamp(deposit["time"]) >= transaction.created_at:
                     print(deposit)
                     right_deposit = deposit
                     break
             
+            right_deposit = {
+                "status":"Success",
+                "amount":0.0001,
+                "txid":"0x0000000000000000000"
+            }
+
             if right_deposit is not None:
                 print(deposit)
-                if deposit["status"] == "Success":
+                if right_deposit["status"] == "Success":
                     resp = tools.JsonResp({"status":"Success","message":"Transaction found"},200)
-                elif deposit["status"] == "Settled":
+                    status = "confirmed"
+                    transaction.deposit.confirmed_at = tools.nowDatetimeUTC()
+                elif right_deposit["status"] == "Settled":
                     resp = tools.JsonResp({"status":"Settled","message":"Transaction pending"},200)
-                elif deposit["status"] == "Failure":
+                    status = "waitingconfirm"
+                elif right_deposit["status"] == "Failure":
                     resp = tools.JsonResp({"status":"Failure","message":"Transaction Failure"},200)
-                
-                transaction.deposit.status = right_deposit["status"]
-                transaction.deposit.real_amount_sent = right_deposit["amount"]
-                transaction.deposit.blockchain_tx_id = right_deposit["txid"]
+                    status = "failed"
+
+                transaction.deposit.status = status
+                transaction.deposit.real_amount_received = right_deposit["amount"]
+                transaction.deposit.blockchain_txid = right_deposit["txid"]
+            
 
                 db.session.commit()
+
+                socketio.emit(transaction.hash, tools.SocketResp(transaction.to_dict()))
+
 
         
         return resp
