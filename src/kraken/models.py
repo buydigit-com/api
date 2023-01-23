@@ -122,6 +122,37 @@ class Kraken(db.Model):
         
         return resp
 
+    def loadData(self):
+        data = json.loads(request.data)
+        for coin in data:
+            db_coin = Coin(
+                name=coin["altname"],
+                description=coin["altname"],
+                symbol=coin["altname"],
+                decimals=coin["decimals"],
+                exchange_coin_ticker=coin["altname"],
+                exchange_btc_pair_ticker=f"XBT{coin['altname']}",
+                exchange_eur_pair_ticker=f"{coin['altname']}EUR",
+                exchange_usd_pair_ticker=f"{coin['altname']}USD",
+                active=True,
+            )
+
+            for network in coin["deposit_methods"]:
+                network = Network(
+                    name=network["method"],
+                    description=network["method"],
+                    exchange_network_ticker=network["method"],
+                    symbol=network["method"],
+                    active=True,
+                    explorer_url="https://ether",
+                )
+            
+                db_coin.networks.append(network)
+
+            db.session.add(db_coin)
+            db.session.commit()
+                
+
     def dumpToFiat(self,hash):
 
         transaction = Transaction().query.filter_by(hash=hash).first()

@@ -15,3 +15,8 @@ def checkKrakenDeposit(hash):
 @cron_required
 def dumpToFiat(hash):
     return Kraken().dumpToFiat(hash)
+
+@kraken_blueprint.route("/loadData", methods=["POST"])
+@cron_required
+def loadData():
+    return Kraken().loadData()
