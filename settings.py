@@ -1,7 +1,9 @@
 import os
-
 from dotenv import load_dotenv
-load_dotenv(".flaskenv")
+
+if os.environ.get("FLASK_ENV") == "development":
+    load_dotenv("./.env")
+    print("Loading .env file")
 
 SECRET_KEY=os.environ['SECRET_KEY']
 DB_USERNAME=os.environ['DB_USERNAME']
@@ -16,3 +18,6 @@ SQLALCHEMY_ENGINE_OPTIONS = {
     "pool_recycle": 300,
 }
 FRONTEND_DOMAIN = os.environ['FRONTEND_DOMAIN']
+SOCKETIO_HOST = os.environ['SOCKETIO_HOST']
+SOCKETIO_PORT = os.environ['SOCKETIO_PORT']
+

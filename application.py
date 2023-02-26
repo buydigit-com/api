@@ -17,7 +17,7 @@ def create_app(**config_overrides):
     # apply overrides for tests
     app.config.update(config_overrides)
 
-    cors = CORS(app,supports_credentials=True, resources={  r"/*": { "origins": app.config["FRONTEND_DOMAIN"] }})
+    cors = CORS(app,supports_credentials=True, resources={  r"/*": { "origins": "*" }})
     # initialize db
     db.init_app(app)
     migrate = Migrate(app, db)
@@ -34,5 +34,5 @@ def create_app(**config_overrides):
     from src.gateway import wsnode
     app.register_blueprint(gateway_blueprint, url_prefix="/gateway")
     app.register_blueprint(kraken_blueprint, url_prefix="/kraken")
-    socketio.init_app(app,cors_allowed_origins="*")
+    socketio.init_app(app,cors_allowed_origins="*",path="/ws")
     return app

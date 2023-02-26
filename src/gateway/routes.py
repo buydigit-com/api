@@ -6,7 +6,9 @@ from src.utils.middleware import isMerchant,api_required,cron_required
 
 gateway_blueprint = Blueprint("gateway", __name__)
 
-
+@gateway_blueprint.route("/status", methods=["GET"])
+def status():
+	return Transaction().getTransaction("test")
 
 @gateway_blueprint.route("/transaction", methods=["PUT"])
 @api_required

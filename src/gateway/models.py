@@ -54,9 +54,10 @@ class Deposit(db.Model,SerializerMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(255), nullable=False)
+    amount_generated_at = db.Column(db.DateTime, nullable=True)
     amount = db.Column(db.Numeric(18,8), nullable=True)
     confirmed_at = db.Column(db.DateTime, nullable=True)
-    real_amount_received = db.Column(db.Float, nullable=True)
+    real_amount_received = db.Column(db.Numeric(18,8), nullable=True)
     deposit_address = db.Column(db.String(255), nullable=True)
     user_address = db.Column(db.String(255), nullable=True)
     blockchain_txid = db.Column(db.String(255), nullable=True)
@@ -83,6 +84,7 @@ class Transaction(db.Model,SerializerMixin):
     hash = db.Column(db.String(255), unique=True, nullable=False)
     fiat_currency = db.Column(db.String(255), nullable=False)
     fiat_amount = db.Column(db.Numeric(10,2), nullable=False)
+    real_fiat_received = db.Column(db.Numeric(10,2), nullable=True)
     product_id = db.Column(db.Integer, nullable=False)
     product_description = db.Column(db.String(255), nullable=False)
     shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'))
@@ -101,6 +103,9 @@ class Transaction(db.Model,SerializerMixin):
                 "product_id": data['product_id'],
                 "shop_api_key": data['shop_api_key'],
             }
+
+            if data["fiat_amount"] < 10:
+                return tools.JsonResp({"message": "minimum amount is 10"}, 400)
 
             txn_fingerprint = str(data['fiat_currency']) + str(data['fiat_amount']) + str(tools.nowDatetimeUTC()) + str(tools.randID())
             hs = hashlib.sha1(txn_fingerprint.encode('ascii'))
@@ -146,7 +151,14 @@ class Transaction(db.Model,SerializerMixin):
     def getTransaction(self, hash):
         try:
             transaction = Transaction.query.filter_by(hash=hash).first()
-            resp = tools.JsonResp({"message": "txn found", "status": transaction.deposit.status}, 200)
+
+            data = {
+                "hash": transaction.hash,
+                "status": transaction.deposit.status,
+                "real_fiat_received": transaction.real_fiat_received,
+            }
+
+            resp = tools.JsonResp({"message": "txn found", "data": data}, 200)
         except Exception as e:
             print(e)
             resp = tools.JsonResp({"message": "txn not found"}, 500)
@@ -169,9 +181,10 @@ class Transaction(db.Model,SerializerMixin):
 
             transaction = Transaction.query.filter_by(hash=hash).first()
             transaction.deposit.status = "initiated"
+            
             transaction.deposit.deposit_address = Kraken().getDepositAddress(expected_data['coin_id'], expected_data['network_id'])
             transaction.deposit.amount = Kraken().getAmount(transaction.fiat_currency,transaction.fiat_amount,expected_data['coin_id'])
-            transaction.deposit.amount_timestamp = tools.nowDatetimeUTC()
+            transaction.deposit.amount_generated_at = tools.nowDatetimeUTC()
             transaction.deposit.coin_id = data['coin_id']
             transaction.deposit.network_id = data['network_id']
             db.session.commit()
@@ -186,7 +199,7 @@ class Transaction(db.Model,SerializerMixin):
         try:
             transaction = Transaction.query.filter_by(hash=hash).first()
             transaction.deposit.amount = Kraken.getAmount(transaction.fiat_currency,transaction.fiat_amount,transaction.deposit.coin_id)
-            transaction.deposit.amount_timestamp = tools.nowDatetimeUTC()
+            transaction.deposit.amount_generated_at = tools.nowDatetimeUTC()
             db.session.commit()
             resp = tools.JsonResp({"message": "amount updated","data":{"amount":transaction.deposit.amount}}, 200)
         except Exception as e:
