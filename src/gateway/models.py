@@ -117,7 +117,7 @@ class Transaction(db.Model,SerializerMixin):
 
             transaction = Transaction(
                 hash=hash,
-                expiry_at=tools.nowDatetimeUTC() + timedelta(hours=24),
+                expiry_at=tools.nowDatetimeUTC() + timedelta(hours=1),
                 fiat_currency=expected_data['fiat_currency'].lower(),
                 fiat_amount=expected_data['fiat_amount'],
                 product_description=expected_data['product_description'],
@@ -155,9 +155,19 @@ class Transaction(db.Model,SerializerMixin):
             if transaction.real_fiat_received >= transaction.fiat_amount:
                 amount = transaction.fiat_amount
 
+            status = transaction.deposit.status
+            print(transaction)
+            print(type(transaction.expiry_at))
+            print(type(tools.nowDatetimeUTC()))
+            try:
+                if transaction.expiry_at > tools.nowDatetimeUTC():
+                    status = "expired"
+            except:
+                pass
+
             data = {
                 "hash": transaction.hash,
-                "status": transaction.deposit.status,
+                "status": status,
                 "amount": amount,
             }
 
@@ -247,7 +257,7 @@ class Transaction(db.Model,SerializerMixin):
     def getDumpToProcess(self):
         try:
             # get all transactions that are not expired and have deposit status pending or waiting
-            transactions = Transaction.query.with_entities(Transaction.hash).filter(Transaction.expiry_at > tools.nowDatetimeUTC()).filter(Transaction.deposit.has(status="confirmed")).filter(or_(Transaction.deposit.has(Deposit.dump.has(status="pending")),Transaction.deposit.has(Deposit.dump.has(status="pending")))).all()
+            transactions = Transaction.query.with_entities(Transaction.hash).filter(Transaction.deposit.has(status="confirmed")).filter(or_(Transaction.deposit.has(Deposit.dump.has(status="pending")),Transaction.deposit.has(Deposit.dump.has(status="pending")))).all()
             resp = tools.JsonResp({"message": "transactions found","transactions":transactions}, 200)
         except Exception as e:
             print(e)
