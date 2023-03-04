@@ -8,7 +8,7 @@ gateway_blueprint = Blueprint("gateway", __name__)
 
 @gateway_blueprint.route("/status", methods=["GET"])
 def status():
-	return Transaction().getTransaction("test")
+	return Transaction().getTransaction()
 
 @gateway_blueprint.route("/transaction", methods=["PUT"])
 @api_required
@@ -44,3 +44,9 @@ def getCoinNetworks(id):
 @cron_required
 def getTransactionsToProcess():
 	return Transaction().getTransactionsToProcess()
+
+
+@gateway_blueprint.route("/dump/toprocess", methods=["GET"])
+@cron_required
+def getDumpToProcess():
+	return Transaction().getDumpToProcess()

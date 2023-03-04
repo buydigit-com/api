@@ -141,8 +141,6 @@ class Kraken(db.Model):
 
                 socketio.emit(transaction.hash, tools.SocketResp(transaction.to_dict()))
 
-                if status == "confirmed" and transaction.deposit.dump.status == "pending":
-                    thread = threading.Thread(target=self.dumpToFiat(transaction.hash)).start()
         return resp
 
     def loadData(self):
@@ -181,21 +179,27 @@ class Kraken(db.Model):
             transaction = Transaction().query.filter_by(hash=hash).first()
             exchange_coin_fiat_ticker = getattr(Coin().query.filter_by(id=transaction.deposit.coin_id).first(),f"exchange_{transaction.fiat_currency}_pair_ticker")
             exchange_coin_decimals = Coin().query.filter_by(id=transaction.deposit.coin_id).first().decimals
+            print(transaction.deposit.amount)
+            
 
+
+
+            
             session = self.getSession()
-            data = session.query_private('AddOrder',{'pair':exchange_coin_fiat_ticker,'type':'sell','ordertype':'market','volume':transaction.deposit.amount})
+            #volume = session.query_private('Balance')['result'][Coin().query.filter_by(id=transaction.deposit.coin_id).first().exchange_coin_ticker]
+            data = session.query_private('AddOrder',{'pair':exchange_coin_fiat_ticker,'type':'sell','ordertype':'market','volume':float(transaction.deposit.amount)})
             self.closeSession(session)
-
+            print(data)
             if "result" not in data:
                 print("Kraken API error")
-                return False
+                return tools.JsonResp({"status":"error","message":"Kraken API error"},500)
             
 
             exchange_trade_id = data["result"]["txid"][0]
 
         except Exception as e:
             print(e)
-            return False
+            return tools.JsonResp({"status":"error","message":"Kraken API error"},500)
 
         #fiat_amount = round(float(transaction.deposit.amount) * float(data["result"][exchange_coin_fiat_ticker]["c"][0]),2)
 
@@ -203,4 +207,7 @@ class Kraken(db.Model):
         transaction.deposit.dump.fiat_currency = exchange_coin_fiat_ticker
         #transaction.deposit.dump.final_fiat_amount = fiat_amount
         transaction.deposit.dump.exchange_trade_id = exchange_trade_id
-        return True
+
+        db.session.commit()
+
+        return tools.JsonResp({"status":"confirmed","message":"Dumped!"},200)

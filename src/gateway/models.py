@@ -105,7 +105,7 @@ class Transaction(db.Model,SerializerMixin):
             }
 
             if data["fiat_amount"] < 10:
-                return tools.JsonResp({"message": "minimum amount is 10"}, 400)
+                return tools.JsonResp({"message": "minimum amount is 20"}, 400)
 
             txn_fingerprint = str(data['fiat_currency']) + str(data['fiat_amount']) + str(tools.nowDatetimeUTC()) + str(tools.randID())
             hs = hashlib.sha1(txn_fingerprint.encode('ascii'))
@@ -151,11 +151,14 @@ class Transaction(db.Model,SerializerMixin):
     def getTransaction(self, hash):
         try:
             transaction = Transaction.query.filter_by(hash=hash).first()
+            amount = transaction.real_fiat_received
+            if transaction.real_fiat_received >= transaction.fiat_amount:
+                amount = transaction.fiat_amount
 
             data = {
                 "hash": transaction.hash,
                 "status": transaction.deposit.status,
-                "real_fiat_received": transaction.real_fiat_received,
+                "amount": amount,
             }
 
             resp = tools.JsonResp({"message": "txn found", "data": data}, 200)
@@ -235,6 +238,16 @@ class Transaction(db.Model,SerializerMixin):
         try:
             # get all transactions that are not expired and have deposit status pending or waiting
             transactions = Transaction.query.with_entities(Transaction.hash).filter(Transaction.expiry_at > tools.nowDatetimeUTC()).filter(or_(Transaction.deposit.has(status="initiated"),Transaction.deposit.has(status="waitingconfirm"))).all()
+            resp = tools.JsonResp({"message": "transactions found","transactions":transactions}, 200)
+        except Exception as e:
+            print(e)
+            resp = tools.JsonResp({"message": "transactions not found"}, 500)
+        return resp
+
+    def getDumpToProcess(self):
+        try:
+            # get all transactions that are not expired and have deposit status pending or waiting
+            transactions = Transaction.query.with_entities(Transaction.hash).filter(Transaction.expiry_at > tools.nowDatetimeUTC()).filter(Transaction.deposit.has(status="confirmed")).filter(or_(Transaction.deposit.has(Deposit.dump.has(status="pending")),Transaction.deposit.has(Deposit.dump.has(status="pending")))).all()
             resp = tools.JsonResp({"message": "transactions found","transactions":transactions}, 200)
         except Exception as e:
             print(e)
