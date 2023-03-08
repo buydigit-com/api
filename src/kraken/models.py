@@ -102,7 +102,7 @@ class Kraken(db.Model):
 
             print(data["result"])
             for deposit in data["result"]:
-                if float(deposit["amount"]) == float(transaction.deposit.amount) and deposit["info"] == transaction.deposit.deposit_address and datetime.fromtimestamp(deposit["time"]) >= transaction.created_at:
+                if float(deposit["amount"]) == float(transaction.deposit.amount) and datetime.fromtimestamp(deposit["time"]) >= transaction.created_at:
                     right_deposit = deposit
                     break
                     
@@ -177,7 +177,7 @@ class Kraken(db.Model):
         print("DUMPING TO FIAT",hash)
         try:
             transaction = Transaction().query.filter_by(hash=hash).first()
-            exchange_coin_fiat_ticker = getattr(Coin().query.filter_by(id=transaction.deposit.coin_id).first(),f"exchange_{transaction.fiat_currency}_pair_ticker")
+            exchange_coin_fiat_ticker = getattr(Coin().query.filter_by(id=transaction.deposit.coin_id).first(),f"exchange_eur_pair_ticker")
             exchange_coin_decimals = Coin().query.filter_by(id=transaction.deposit.coin_id).first().decimals
             print(transaction.deposit.amount)
             

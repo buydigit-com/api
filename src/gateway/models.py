@@ -151,19 +151,16 @@ class Transaction(db.Model,SerializerMixin):
     def getTransaction(self, hash):
         try:
             transaction = Transaction.query.filter_by(hash=hash).first()
-            amount = transaction.real_fiat_received
-            if transaction.real_fiat_received >= transaction.fiat_amount:
+            amount = transaction.fiat_amount
+            if transaction.real_fiat_received is None:
                 amount = transaction.fiat_amount
+            else:
+                if transaction.real_fiat_received >= transaction.fiat_amount:
+                    amount = transaction.fiat_amount
+                else:
+                    amount = transaction.real_fiat_received
 
             status = transaction.deposit.status
-            print(transaction)
-            print(type(transaction.expiry_at))
-            print(type(tools.nowDatetimeUTC()))
-            try:
-                if transaction.expiry_at > tools.nowDatetimeUTC():
-                    status = "expired"
-            except:
-                pass
 
             data = {
                 "hash": transaction.hash,
