@@ -244,7 +244,7 @@ class Transaction(db.Model,SerializerMixin):
     def getTransactionsToProcess(self):
         try:
             # get all transactions that are not expired and have deposit status pending or waiting
-            transactions = Transaction.query.with_entities(Transaction.hash).filter(Transaction.expiry_at > tools.nowDatetimeUTC()).filter(or_(Transaction.deposit.has(status="initiated"),Transaction.deposit.has(status="waitingconfirm"))).all()
+            transactions = Transaction.query.with_entities(Transaction.hash).filter(or_(Transaction.deposit.has(status="initiated"),Transaction.deposit.has(status="waitingconfirm"))).all()
             resp = tools.JsonResp({"message": "transactions found","transactions":transactions}, 200)
         except Exception as e:
             print(e)

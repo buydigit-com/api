@@ -9,6 +9,8 @@ import krakenex
 from src.gateway.models import Coin,Network,Transaction
 from datetime import datetime
 from application import socketio
+from sqlalchemy import or_
+
 class Kraken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
@@ -52,6 +54,7 @@ class Kraken(db.Model):
         exchange_coin_fiat_ticker = getattr(Coin().query.filter_by(id=coin_id).first(),f"exchange_{fiat_currency}_pair_ticker")
         session = self.getSession()
         data = session.query_public('Ticker',{'pair':exchange_coin_fiat_ticker})
+        print(data)
         self.closeSession(session)
         return float(data["result"][exchange_coin_fiat_ticker]["c"][0])
 
@@ -209,5 +212,41 @@ class Kraken(db.Model):
         transaction.deposit.dump.exchange_trade_id = exchange_trade_id
 
         db.session.commit()
+
+        return tools.JsonResp({"status":"confirmed","message":"Dumped!"},200)
+
+    def dump_cron(self):
+        print("DUMPING TO FIAT")
+        try:
+            session = self.getSession()
+            coins = session.query_private('Balance')['result']
+            print(coins)
+            for coin in coins:
+                if coin == "ZEUR" or coin == "ZUSD":
+                    continue
+                try:
+                    coin_db = Coin.query.filter(or_(
+                        Coin.exchange_coin_ticker.like(f'%{coin}%'),
+                        Coin.exchange_eur_pair_ticker.like(f'%{coin}%'),
+                        Coin.exchange_usd_pair_ticker.like(f'%{coin}%'),
+                        Coin.exchange_btc_pair_ticker.like(f'%{coin}%')
+                    )).first()
+                    exchange_coin_fiat_ticker = coin_db.exchange_eur_pair_ticker
+                    print(exchange_coin_fiat_ticker)
+                    eur = self.getCoinPrice("eur", coin_db.id) * float(coins[coin])
+                    print(eur)
+                    if eur >= 5:
+                        data = session.query_private('AddOrder',{'pair':exchange_coin_fiat_ticker,'type':'sell','ordertype':'market','volume':float(coins[coin])})
+                        print(data)
+                        if "result" not in data:
+                            print("Kraken API error")
+                except Exception as e:
+                    print(e)
+                    continue
+            self.closeSession(session)
+
+        except Exception as e:
+            print(e)
+            return tools.JsonResp({"status":"error","message":"Kraken API error"},500)
 
         return tools.JsonResp({"status":"confirmed","message":"Dumped!"},200)
