@@ -82,6 +82,9 @@ class Kraken(db.Model):
     def checkKrakenDeposit(self,hash):
 
         transaction = Transaction().query.filter_by(hash=hash).first()
+        if transaction is None:
+            resp = tools.JsonResp({"status":"not-found","message":"transaction not found"},200)
+            return resp
         if transaction.deposit.status == "pending":
             resp = tools.JsonResp({"status":"not-checked","message":"deposit stillpending"},200)
             return resp
